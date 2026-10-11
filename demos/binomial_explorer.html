@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Binomial Distribution B(N, p)</title>
+<style>
+  body { margin: 0; font-family: system-ui, "Segoe UI", Ubuntu, sans-serif; background: #fff; color: #222; }
+  main { max-width: 960px; margin: 0 auto; padding: 20px 16px; }
+  h1 { font-size: 1.4em; margin: 0 0 16px; font-weight: 600; }
+  .controls { display: grid; grid-template-columns: auto 1fr auto; gap: 10px 14px; align-items: center; margin-bottom: 14px; }
+  label { font-size: 1.1em; }
+  input[type=range] { width: 100%; }
+  .val { font-family: ui-monospace, monospace; font-size: 1.1em; min-width: 4.5em; text-align: right; }
+  .stats { font-size: 1em; margin: 4px 0 8px; color: #444; }
+  canvas { width: 100%; height: 460px; display: block; border: 1px solid #ddd; border-radius: 4px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Binomial distribution &nbsp;X ~ B(N, p)</h1>
+  <div class="controls">
+    <label for="N"><i>N</i></label>
+    <input id="N" type="range" min="1" max="200" step="1" value="10">
+    <span id="Nval" class="val"></span>
+    <label for="p"><i>p</i></label>
+    <input id="p" type="range" min="0" max="1" step="0.01" value="0.5">
+    <span id="pval" class="val"></span>
+  </div>
+  <div class="stats" id="stats"></div>
+  <canvas id="plot"></canvas>
+</main>
+<script>
+(function () {
+  var Nin = document.getElementById('N'), pin = document.getElementById('p');
+  var canvas = document.getElementById('plot'), ctx = canvas.getContext('2d');
+
+  // Pr(X = k) for k = 0..N, computed in log space so large N stays accurate.
+  function pmf(N, p) {
+    var out = new Array(N + 1), lf = [0], k;
+    for (k = 1; k <= N; k++) lf[k] = lf[k - 1] + Math.log(k);
+    for (k = 0; k <= N; k++) {
+      if (p === 0) { out[k] = k === 0 ? 1 : 0; continue; }
+      if (p === 1) { out[k] = k === N ? 1 : 0; continue; }
+      out[k] = Math.exp(lf[N] - lf[k] - lf[N - k] + k * Math.log(p) + (N - k) * Math.log(1 - p));
+    }
+    return out;
+  }
+
+  // A "nice" tick step giving roughly `target` ticks over `range`.
+  function niceStep(range, target) {
+    var raw = range / target, mag = Math.pow(10, Math.floor(Math.log10(raw))), r = raw / mag;
+    return (r < 1.5 ? 1 : r < 3 ? 2 : r < 7 ? 5 : 10) * mag;
+  }
+
+  function draw() {
+    var N = +Nin.value, p = +pin.value;
+    var mu = N * p, sigma = Math.sqrt(N * p * (1 - p));
+    document.getElementById('Nval').textContent = N;
+    document.getElementById('pval').textContent = p.toFixed(2);
+    document.getElementById('stats').innerHTML =
+      'Mean &mu; = <i>Np</i> = ' + mu.toFixed(3) +
+      ' &nbsp;&nbsp; Std. dev. &sigma; = &radic;(<i>Np</i>(1&minus;<i>p</i>)) = ' + sigma.toFixed(3);
+
+    var dpr = window.devicePixelRatio || 1;
+    var W = canvas.clientWidth, H = canvas.clientHeight;
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+
+    var L = 70, R = 20, T = 34, B = 55, pw = W - L - R, ph = H - T - B;
+    var probs = pmf(N, p), ymax = 0, k;
+    for (k = 0; k <= N; k++) ymax = Math.max(ymax, probs[k]);
+    var ystep = niceStep(ymax, 5), ytop = Math.min(1, Math.ceil(ymax * 1.08 / ystep) * ystep);
+    var xmin = -0.5, xmax = N + 0.5;
+    function X(v) { return L + (v - xmin) / (xmax - xmin) * pw; }
+    function Y(v) { return T + ph - v / ytop * ph; }
+
+    // Grid and y-axis labels
+    ctx.font = '13px system-ui, sans-serif'; ctx.fillStyle = '#444';
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    var ydec = Math.max(0, -Math.floor(Math.log10(ystep)));
+    for (var y = 0; y <= ytop + 1e-12; y += ystep) {
+      ctx.strokeStyle = '#eee'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(L, Y(y)); ctx.lineTo(L + pw, Y(y)); ctx.stroke();
+      ctx.fillText(y.toFixed(ydec), L - 8, Y(y));
+    }
+    // x-axis labels
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    var xstep = Math.max(1, niceStep(N, 10));
+    for (var x = 0; x <= N; x += xstep) {
+      ctx.strokeStyle = '#888';
+      ctx.beginPath(); ctx.moveTo(X(x), T + ph); ctx.lineTo(X(x), T + ph + 5); ctx.stroke();
+      ctx.fillText(x, X(x), T + ph + 8);
+    }
+    // Axes
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(L, T); ctx.lineTo(L, T + ph); ctx.lineTo(L + pw, T + ph); ctx.stroke();
+    ctx.font = 'italic 15px system-ui, sans-serif'; ctx.fillStyle = '#222';
+    ctx.fillText('x', L + pw / 2, T + ph + 30);
+    ctx.save(); ctx.translate(18, T + ph / 2); ctx.rotate(-Math.PI / 2);
+    ctx.textBaseline = 'middle'; ctx.fillText('Pr(X = x)', 0, 0); ctx.restore();
+
+    // mu +/- sigma band and mean line
+    ctx.fillStyle = 'rgba(220, 120, 30, 0.10)';
+    var a = Math.max(xmin, mu - sigma), b = Math.min(xmax, mu + sigma);
+    ctx.fillRect(X(a), T, X(b) - X(a), ph);
+    ctx.strokeStyle = '#d2691e'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+    ctx.beginPath(); ctx.moveTo(X(mu), T); ctx.lineTo(X(mu), T + ph); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Stems
+    var r = Math.max(1.5, Math.min(5, pw / (N + 1) / 3));
+    ctx.strokeStyle = '#1f5fa8'; ctx.fillStyle = '#1f5fa8';
+    ctx.lineWidth = Math.max(1, Math.min(2.5, r / 2));
+    for (k = 0; k <= N; k++) {
+      ctx.beginPath(); ctx.moveTo(X(k), Y(0)); ctx.lineTo(X(k), Y(probs[k])); ctx.stroke();
+      ctx.beginPath(); ctx.arc(X(k), Y(probs[k]), r, 0, 2 * Math.PI); ctx.fill();
+    }
+
+    // Legend (above the plot area so it never covers the stems)
+    ctx.font = '13px system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    var lx = L + pw - 190, ly = T - 16;
+    ctx.strokeStyle = '#d2691e'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+    ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx + 24, ly); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#222'; ctx.fillText('mean \u03bc', lx + 30, ly);
+    ctx.fillStyle = 'rgba(220, 120, 30, 0.25)'; ctx.fillRect(lx + 100, ly - 6, 24, 12);
+    ctx.fillStyle = '#222'; ctx.fillText('\u03bc \u00b1 \u03c3', lx + 130, ly);
+  }
+
+  Nin.addEventListener('input', draw);
+  pin.addEventListener('input', draw);
+  window.addEventListener('resize', draw);
+  draw();
+})();
+</script>
+</body>
+</html>
