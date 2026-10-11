@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Uniform and CLT Explorer</title>
+<style>
+  body { margin: 0; font-family: system-ui, "Segoe UI", Ubuntu, sans-serif; background: #fff; color: #222; }
+  main { max-width: 1280px; margin: 0 auto; padding: 20px 16px; }
+  h1 { font-size: 1.4em; margin: 0 0 12px; font-weight: 600; }
+  footer { display: flex; justify-content: flex-end; margin-top: 14px; }
+  .stamp { font-size: 0.85em; color: #8a4b12; border: 1.5px solid #d2691e; border-radius: 4px; padding: 3px 10px;
+    background: #fdf5ee; white-space: nowrap; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; border-bottom: 1px solid #ccc; }
+  .tabs button { font: inherit; font-size: 1.02em; padding: 7px 16px; border: 1px solid #ccc; border-bottom: none;
+    border-radius: 6px 6px 0 0; background: #f4f4f4; color: #333; cursor: pointer; margin-bottom: -1px; }
+  .tabs button.active { background: #fff; color: #1f5fa8; font-weight: 600; border-bottom: 1px solid #fff; }
+  .hidden { display: none !important; }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin-bottom: 14px; font-size: 1.05em; }
+  .controls label { display: inline-flex; align-items: center; gap: 6px; }
+  .controls input[type=number] { font: inherit; width: 6em; padding: 3px 6px; border: 1px solid #bbb; border-radius: 4px; }
+  .controls select { font: inherit; padding: 3px 6px; border: 1px solid #bbb; border-radius: 4px; }
+  .params { display: inline-flex; flex-wrap: wrap; gap: 10px 18px; }
+  .btn { font: inherit; padding: 5px 16px; border-radius: 4px; border: 1px solid #1f5fa8; background: #1f5fa8; color: #fff; cursor: pointer; min-width: 5em; }
+  .btn.stop { background: #d2691e; border-color: #d2691e; }
+  .btn.plain { background: #fff; color: #1f5fa8; }
+  .layout { display: grid; grid-template-columns: 1fr 260px; gap: 14px; align-items: start; }
+  canvas { width: 100%; height: 440px; display: block; border: 1px solid #ddd; border-radius: 4px; }
+  .readout { display: grid; gap: 10px; }
+  .box { border: 1px solid #ddd; border-radius: 4px; padding: 8px 12px; }
+  .box .lab { font-size: 0.95em; color: #555; }
+  .box .num { font-family: ui-monospace, monospace; font-size: 1.6em; color: #1f5fa8; margin-top: 2px; }
+  .box.big .num { font-size: 2.2em; color: #222; }
+  .mom { border-collapse: collapse; font-size: 0.92em; width: 100%; }
+  .mom th, .mom td { border: 1px solid #ccc; padding: 2px 8px; text-align: center; line-height: 1.25; }
+  .mom th { background: #f4f4f4; font-weight: 600; white-space: nowrap; }
+  .mom td { font-family: ui-monospace, monospace; }
+  .xbar { position: relative; display: inline-block; }
+  .xbar::before { content: ""; position: absolute; left: 0.18em; right: -0.04em; top: 0.08em; border-top: 0.07em solid currentColor; }
+  .note { font-size: 0.92em; color: #555; margin-top: 8px; }
+  @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } canvas { height: 340px; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="tabs">
+    <button data-tab="uni" class="active">Uniform distribution</button>
+    <button data-tab="clt">Central limit theorem</button>
+  </div>
+
+  <section id="uniTab">
+    <h1>Uniform distribution &nbsp;X ~ U(0, 1)</h1>
+    <div class="controls">
+      <button class="btn" id="uStart">Start</button>
+      <button class="btn plain" id="uReset">Reset</button>
+      <label>Number of bins <i>N</i> <input id="uBins" type="number" min="1" max="500" step="1" value="10"></label>
+    </div>
+    <div class="layout">
+      <canvas id="uPlot"></canvas>
+      <div class="readout">
+        <div class="box big"><div class="lab">Latest random number</div><div class="num" id="uLast">&ndash;</div></div>
+        <div class="box"><div class="lab">Total numbers generated</div><div class="num" id="uCount">0</div></div>
+        <div class="box"><div class="lab">Mean</div><div class="num" id="uMean">&ndash;</div></div>
+        <div class="box"><div class="lab">Variance</div><div class="num" id="uVar">&ndash;</div></div>
+      </div>
+    </div>
+    <div class="note">Bar height = (count in bin) / (numbers generated &times; bin width), bin width = 1/<i>N</i>, so the bars estimate the PDF <i>p<sub>X</sub></i>(<i>x</i>).</div>
+    <div style="max-width: 520px; margin-top: 14px;">
+      <table class="mom" id="uMom"></table>
+    </div>
+  </section>
+
+  <section id="cltTab" class="hidden">
+    <h1>Central limit theorem: PDF of the sample mean <i><span class="xbar">x</span><sub>n</sub></i></h1>
+    <div class="controls">
+      <label>Distribution
+        <select id="cDist">
+          <option value="uni">Uniform U(a, b)</option>
+          <option value="expo">Exponential Exp(&lambda;)</option>
+          <option value="gauss">Gaussian (&mu;, &sigma;&sup2;)</option>
+          <option value="binom">Binomial B(N, p)</option>
+          <option value="pois">Poisson(&lambda;)</option>
+        </select>
+      </label>
+      <span class="params" id="cParams"></span>
+      <label>Sample size <i>n</i> <input id="cN" type="number" min="1" max="10000" step="1" value="5"></label>
+    </div>
+    <div class="controls">
+      <button class="btn" id="cStart">Start</button>
+      <button class="btn plain" id="cReset">Reset</button>
+      <label>Number of bins <input id="cBins" type="number" min="1" max="500" step="1" value="30"></label>
+    </div>
+    <div class="layout">
+      <canvas id="cPlot"></canvas>
+      <div class="readout">
+        <div class="box big"><div class="lab">Latest sample mean <i><span class="xbar">x</span><sub>n</sub></i></div><div class="num" id="cLast">&ndash;</div></div>
+        <div class="box"><div class="lab">Sample means generated</div><div class="num" id="cCount">0</div></div>
+        <div class="box"><div class="lab">Mean of the <i><span class="xbar">x</span><sub>n</sub></i> values</div><div class="num" id="cMean">&ndash;</div></div>
+        <div class="box"><div class="lab">Variance of the <i><span class="xbar">x</span><sub>n</sub></i> values</div><div class="num" id="cVar">&ndash;</div></div>
+      </div>
+    </div>
+    <div class="note">Each new <i><span class="xbar">x</span><sub>n</sub></i> is the mean of <i>n</i> fresh random values from the chosen distribution. Bar height = (count in bin) / (values generated &times; bin width).</div>
+  </section>
+
+</main>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var BLUE = '#1f5fa8';
+  var RATE_MS = 125; // 8 values per second
+
+  function niceStep(range, target) {
+    var raw = range / target, mag = Math.pow(10, Math.floor(Math.log10(raw))), r = raw / mag;
+    return (r < 1.5 ? 1 : r < 3 ? 2 : r < 7 ? 5 : 10) * mag;
+  }
+
+  function intInput(el, lo, hi) {
+    var v = Math.round(+el.value);
+    if (!isFinite(v)) v = lo;
+    v = Math.max(lo, Math.min(hi, v));
+    el.value = v;
+    return v;
+  }
+
+  // Histogram of `vals` with `nb` bins on [lo, hi], scaled as count / (total * width).
+  // Draws a list of [text, kind] pieces centred (or left-aligned) at (x, y), text baseline middle,
+  // and returns the total width; with `measureOnly` it only returns the width.
+  // kind: 'r' upright, 'i' italic, 's' italic subscript, 'b' italic with a bar over it, 'N' script N.
+  function rich(ctx, parts, x, y, size, align, measureOnly) {
+    function font(k) { return (k === 'r' ? '' : 'italic ') + Math.round(k === 's' ? size * 0.72 : size) + 'px system-ui, sans-serif'; }
+    function width(p) { if (p[1] === 'N') return size * 0.95; ctx.font = font(p[1]); return ctx.measureText(p[0]).width; }
+    var total = 0, i;
+    for (i = 0; i < parts.length; i++) total += width(parts[i]);
+    if (measureOnly) return total;
+    var cx = align === 'left' ? x : x - total / 2;
+    ctx.save(); ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.strokeStyle = ctx.fillStyle;
+    for (i = 0; i < parts.length; i++) {
+      var p = parts[i], w = width(p);
+      if (p[1] === 'N') scriptN(ctx, cx, y, size);
+      else {
+        ctx.font = font(p[1]);
+        ctx.fillText(p[0], cx, p[1] === 's' ? y + size * 0.3 : y);
+        if (p[1] === 'b') {
+          ctx.lineWidth = Math.max(1, size / 14);
+          ctx.beginPath(); ctx.moveTo(cx + w * 0.2, y - size * 0.5); ctx.lineTo(cx + w * 1.05, y - size * 0.5); ctx.stroke();
+        }
+      }
+      cx += w;
+    }
+    ctx.restore();
+    return total;
+  }
+
+  // Calligraphic capital N (the symbol for the Gaussian distribution), drawn as a path so no special font is needed.
+  function scriptN(ctx, x, y, size) {
+    var w = size * 0.95, top = y - size * 0.38, bot = y + size * 0.34, h = bot - top;
+    ctx.save(); ctx.lineWidth = Math.max(1.1, size / 11); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x + 0.04 * w, bot - 0.1 * h);
+    ctx.quadraticCurveTo(x + 0.1 * w, bot + 0.04 * h, x + 0.2 * w, bot - 0.15 * h);
+    ctx.bezierCurveTo(x + 0.27 * w, bot - 0.45 * h, x + 0.26 * w, top + 0.25 * h, x + 0.36 * w, top + 0.02 * h);
+    ctx.bezierCurveTo(x + 0.46 * w, top + 0.35 * h, x + 0.56 * w, bot - 0.3 * h, x + 0.66 * w, bot);
+    ctx.bezierCurveTo(x + 0.72 * w, bot - 0.45 * h, x + 0.74 * w, top + 0.2 * h, x + 0.86 * w, top + 0.02 * h);
+    ctx.quadraticCurveTo(x + 0.96 * w, top - 0.08 * h, x + 1.0 * w, top + 0.06 * h);
+    ctx.stroke(); ctx.restore();
+  }
+
+  // If `lattice` is given the values are multiples of it; bins are then whole multiples of the lattice
+  // step, centred on the lattice points, so no bin is left empty just because no value can fall in it.
+  function drawHist(canvas, vals, nb, lo, hi, ylabel, title, lattice, pdf, pdfLabel) {
+    if (lattice) {
+      var m = Math.max(1, Math.round((hi - lo) / nb / lattice));
+      lo = (Math.floor(lo / lattice + 1e-9) - 0.5) * lattice;
+      nb = Math.max(1, Math.ceil((hi - lo) / (m * lattice) - 1e-9));
+      hi = lo + nb * m * lattice;
+    }
+    var ctx = canvas.getContext('2d'), dpr = window.devicePixelRatio || 1;
+    var W = canvas.clientWidth, H = canvas.clientHeight;
+    if (!W) return;
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    var w = (hi - lo) / nb, counts = [], i, k;
+    for (k = 0; k < nb; k++) counts[k] = 0;
+    for (i = 0; i < vals.length; i++) {
+      k = Math.floor((vals[i] - lo) / w + 1e-9);
+      if (k === nb && vals[i] === hi) k = nb - 1;
+      if (k >= 0 && k < nb) counts[k]++;
+    }
+    var dens = counts.map(function (c) { return vals.length ? c / (vals.length * w) : 0; });
+    var dmax = Math.max.apply(null, dens.concat([0]));
+    // `pdf` (optional) is a reference density drawn as a line; keep its peak on the plot too.
+    if (pdf) for (i = 0; i <= 200; i++) dmax = Math.max(dmax, pdf(lo + (hi - lo) * i / 200));
+    var yref = dmax > 0 ? dmax * 1.15 : 1.5 / (hi - lo);
+    var ystep = niceStep(yref, 6), ytop = Math.ceil(yref / ystep) * ystep;
+
+    var L = 66, R = 16, T = 34, B = 52, pw = W - L - R, ph = H - T - B;
+    var X = function (v) { return L + (v - lo) / (hi - lo) * pw; };
+    var Y = function (v) { return T + ph - v / ytop * ph; };
+
+    ctx.font = '13px system-ui, sans-serif'; ctx.fillStyle = '#444';
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    var ydec = Math.max(0, -Math.floor(Math.log10(ystep) + 1e-9));
+    for (var y = 0; y <= ytop + 1e-12; y += ystep) {
+      ctx.strokeStyle = '#eee'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(L, Y(y)); ctx.lineTo(L + pw, Y(y)); ctx.stroke();
+      ctx.fillText(y.toFixed(ydec), L - 8, Y(y));
+    }
+
+    ctx.fillStyle = 'rgba(31, 95, 168, 0.35)'; ctx.strokeStyle = BLUE; ctx.lineWidth = 1;
+    for (k = 0; k < nb; k++) {
+      if (!dens[k]) continue;
+      var x0 = X(lo + k * w), x1 = X(lo + (k + 1) * w);
+      ctx.fillRect(x0, Y(dens[k]), x1 - x0, Y(0) - Y(dens[k]));
+      if (x1 - x0 > 3) ctx.strokeRect(x0, Y(dens[k]), x1 - x0, Y(0) - Y(dens[k]));
+    }
+
+    if (pdf) {
+      ctx.strokeStyle = '#d2691e'; ctx.lineWidth = 2.5; ctx.beginPath();
+      for (i = 0; i <= 400; i++) {
+        var xv = lo + (hi - lo) * i / 400;
+        if (i) ctx.lineTo(X(xv), Y(pdf(xv))); else ctx.moveTo(X(xv), Y(pdf(xv)));
+      }
+      ctx.stroke();
+      ctx.fillStyle = '#222';
+      var lx = L + pw - 32 - rich(ctx, pdfLabel, 0, 0, 14, 'left', true), ly = T - 16;
+      ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx + 24, ly); ctx.stroke();
+      rich(ctx, pdfLabel, lx + 30, ly, 14, 'left');
+    }
+
+    ctx.fillStyle = '#444'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    var xstep = niceStep(hi - lo, 8), xdec = Math.max(0, -Math.floor(Math.log10(xstep) + 1e-9));
+    for (var x = Math.ceil(lo / xstep - 1e-9) * xstep; x <= hi + 1e-9; x += xstep) {
+      ctx.strokeStyle = '#888';
+      ctx.beginPath(); ctx.moveTo(X(x), T + ph); ctx.lineTo(X(x), T + ph + 5); ctx.stroke();
+      ctx.fillText((Math.abs(x) < 1e-12 ? 0 : x).toFixed(xdec), X(x), T + ph + 8);
+    }
+    ctx.strokeStyle = '#333';
+    ctx.beginPath(); ctx.moveTo(L, T); ctx.lineTo(L, T + ph); ctx.lineTo(L + pw, T + ph); ctx.stroke();
+
+    // Axis labels are lists of [text, kind] pieces (see rich).
+    ctx.fillStyle = '#222';
+    rich(ctx, ylabel.x, L + pw / 2, T + ph + 36, 15);
+    ctx.save(); ctx.translate(18, T + ph / 2); ctx.rotate(-Math.PI / 2);
+    rich(ctx, ylabel.y, 0, 0, 15);
+    ctx.restore();
+    ctx.font = '600 14px system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(title, L, T - 16);
+  }
+
+  function stats(vals) {
+    var n = vals.length, s = 0, i;
+    for (i = 0; i < n; i++) s += vals[i];
+    var m = s / n, q = 0;
+    for (i = 0; i < n; i++) q += (vals[i] - m) * (vals[i] - m);
+    return { mean: m, variance: n > 1 ? q / (n - 1) : NaN };
+  }
+  // Up to 4 significant figures, without trailing zeros.
+  function num(v) { return String(+v.toPrecision(4)); }
+  function fmt(v) { return isFinite(v) ? v.toFixed(4) : '–'; }
+
+  // ---------- Tab 1: uniform ----------
+  var uVals = [], uTimer = null;
+  // Math.random in Chrome and Firefox is xorshift128+, whose cycle length is 2^128 - 1.
+  // After that many draws the sequence repeats, so the generator stops there.
+  var RNG_CYCLE = Math.pow(2, 128) - 1;
+
+  // Raw moments E[X^k] = 1/(k+1) for U(0, 1), against the sample raw moments (1/M) sum x_i^k.
+  function uMoments() {
+    var rows = '<tr><th><i>k</i></th><th>Expected E[<i>X<sup>k</sup></i>]</th><th>Calculated</th></tr>';
+    var sums = [], k, i;
+    for (k = 1; k <= 10; k++) sums[k] = 0;
+    for (i = 0; i < uVals.length; i++) { var p = 1; for (k = 1; k <= 10; k++) { p *= uVals[i]; sums[k] += p; } }
+    for (k = 1; k <= 10; k++) {
+      rows += '<tr><th>' + k + '</th><td>' + (1 / (k + 1)).toFixed(4) + '</td><td>' +
+        (uVals.length ? (sums[k] / uVals.length).toFixed(4) : '&ndash;') + '</td></tr>';
+    }
+    $('uMom').innerHTML = rows;
+  }
+
+  function uDraw() {
+    uMoments();
+    var N = intInput($('uBins'), 1, 500);
+    drawHist($('uPlot'), uVals, N, 0, 1, { x: [['x', 'i']], y: [['p', 'i'], ['X', 's'], ['(', 'r'], ['x', 'i'], [') estimate', 'r']] }, 'Histogram of the generated numbers');
+    $('uCount').textContent = uVals.length;
+    if (uVals.length) {
+      var s = stats(uVals);
+      $('uLast').textContent = uVals[uVals.length - 1].toFixed(4);
+      $('uMean').textContent = fmt(s.mean); $('uVar').textContent = fmt(s.variance);
+    } else {
+      $('uLast').textContent = $('uMean').textContent = $('uVar').textContent = '–';
+    }
+  }
+  function uStop() { clearInterval(uTimer); uTimer = null; $('uStart').textContent = 'Start'; $('uStart').classList.remove('stop'); }
+  $('uStart').addEventListener('click', function () {
+    if (uTimer) { uStop(); return; }
+    uTimer = setInterval(function () {
+      if (uVals.length >= RNG_CYCLE) { uStop(); return; }
+      uVals.push(Math.random()); uDraw();
+    }, RATE_MS);
+    this.textContent = 'Stop'; this.classList.add('stop');
+  });
+  $('uReset').addEventListener('click', function () { uStop(); uVals = []; uDraw(); });
+  $('uBins').addEventListener('change', uDraw);
+
+  // ---------- Tab 2: central limit theorem ----------
+  function gauss() {
+    var u = 0, v = 0;
+    while (u === 0) u = Math.random();
+    v = Math.random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+  function poisson(lam) {
+    // Knuth's method, applied in chunks of rate <= 30 so exp(-lam) does not underflow.
+    var total = 0;
+    while (lam > 0) {
+      var l = Math.min(lam, 30), L = Math.exp(-l), k = 0, p = 1;
+      do { k++; p *= Math.random(); } while (p > L);
+      total += k - 1; lam -= l;
+    }
+    return total;
+  }
+
+  // Each distribution: parameter inputs, a sampler, and its mean and std. dev. (used to place the plot range).
+  var DISTS = {
+    uni: { params: [['a', 'a', 0], ['b', 'b', 1]],
+      check: function (p) { return p.b > p.a ? '' : 'Need b > a'; },
+      sample: function (p) { return p.a + (p.b - p.a) * Math.random(); },
+      support: function (p) { return [p.a, p.b]; },
+      mu: function (p) { return (p.a + p.b) / 2; }, sd: function (p) { return (p.b - p.a) / Math.sqrt(12); } },
+    expo: { params: [['lam', 'λ', 1]],
+      check: function (p) { return p.lam > 0 ? '' : 'Need λ > 0'; },
+      sample: function (p) { return -Math.log(1 - Math.random()) / p.lam; },
+      support: function () { return [0, Infinity]; },
+      mu: function (p) { return 1 / p.lam; }, sd: function (p) { return 1 / p.lam; } },
+    gauss: { params: [['mu', 'μ', 0], ['v', 'σ²', 1]],
+      check: function (p) { return p.v > 0 ? '' : 'Need σ² > 0'; },
+      sample: function (p) { return p.mu + Math.sqrt(p.v) * gauss(); },
+      mu: function (p) { return p.mu; }, sd: function (p) { return Math.sqrt(p.v); } },
+    binom: { params: [['N', 'N', 10], ['p', 'p', 0.5]],
+      check: function (p) { return p.N >= 1 && p.N <= 1000 && Math.round(p.N) === p.N && p.p >= 0 && p.p <= 1 ? '' : 'Need N a whole number from 1 to 1000 and 0 ≤ p ≤ 1'; },
+      sample: function (p) { var k = 0; for (var i = 0; i < p.N; i++) if (Math.random() < p.p) k++; return k; },
+      support: function (p) { return [0, p.N]; }, discrete: true,
+      mu: function (p) { return p.N * p.p; }, sd: function (p) { return Math.sqrt(p.N * p.p * (1 - p.p)); } },
+    pois: { params: [['lam', 'λ', 4]],
+      check: function (p) { return p.lam > 0 && p.lam <= 1000 ? '' : 'Need 0 < λ ≤ 1000'; },
+      sample: function (p) { return poisson(p.lam); },
+      support: function () { return [0, Infinity]; }, discrete: true,
+      mu: function (p) { return p.lam; }, sd: function (p) { return Math.sqrt(p.lam); } }
+  };
+
+  var cVals = [], cTimer = null, cCfg = null;
+
+  function buildParams() {
+    var d = DISTS[$('cDist').value], html = '';
+    d.params.forEach(function (q) {
+      html += '<label><i>' + q[1] + '</i> <input type="number" step="any" id="cp_' + q[0] + '" value="' + q[2] + '"></label>';
+    });
+    $('cParams').innerHTML = html;
+    var ins = $('cParams').querySelectorAll('input');
+    for (var i = 0; i < ins.length; i++) ins[i].addEventListener('change', cReset);
+  }
+
+  // Reads the inputs; returns null (and shows why) if they are not valid.
+  function readCfg(quiet) {
+    var d = DISTS[$('cDist').value], p = {};
+    d.params.forEach(function (q) { p[q[0]] = +$('cp_' + q[0]).value; });
+    var n = intInput($('cN'), 1, 10000);
+    var msg = d.check(p);
+    if (msg) { if (!quiet) alert(msg); return null; }
+    var mu = d.mu(p), se = d.sd(p) / Math.sqrt(n);
+    // Plot range: mu +/- 4 standard errors of the sample mean, kept inside the support.
+    var half = se > 0 ? 4 * se : 1, sup = d.support ? d.support(p) : [-Infinity, Infinity];
+    var lo = Math.max(mu - half, sup[0]), hi = Math.min(mu + half, sup[1]);
+    if (hi - lo < 1e-9) { lo = mu - 0.5; hi = mu + 0.5; }
+    return { d: d, p: p, n: n, lo: lo, hi: hi, mu: mu, sd: d.sd(p), se: se, lattice: d.discrete ? 1 / n : 0 };
+  }
+
+  function cDraw() {
+    var nb = intInput($('cBins'), 1, 500);
+    var cfg = cCfg || readCfg(true);
+    if (cfg) drawHist($('cPlot'), cVals, nb, cfg.lo, cfg.hi, { x: [['x', 'b'], ['n', 's']], y: [['PDF estimate of ', 'r'], ['x', 'b'], ['n', 's']] },
+      'Histogram of the sample means, n = ' + cfg.n, cfg.lattice, function (x) {
+        return Math.exp(-(x - cfg.mu) * (x - cfg.mu) / (2 * cfg.se * cfg.se)) / (cfg.se * Math.sqrt(2 * Math.PI));
+      }, [['x', 'b'], ['n', 's'], [' ~ ', 'r'], ['', 'N'], ['(', 'r'], ['μ', 'i'], [' = ' + num(cfg.mu) + ', ', 'r'],
+        ['σ', 'i'], ['²/', 'r'], ['n', 'i'], [' = ' + num(cfg.se * cfg.se) + ')', 'r']]);
+    $('cCount').textContent = cVals.length;
+    if (cVals.length) {
+      var s = stats(cVals);
+      $('cLast').textContent = cVals[cVals.length - 1].toFixed(4);
+      $('cMean').textContent = fmt(s.mean); $('cVar').textContent = fmt(s.variance);
+    } else {
+      $('cLast').textContent = $('cMean').textContent = $('cVar').textContent = '–';
+    }
+  }
+  function cStop() { clearInterval(cTimer); cTimer = null; $('cStart').textContent = 'Start'; $('cStart').classList.remove('stop'); }
+  function cReset() { cStop(); cVals = []; cCfg = null; cDraw(); }
+
+  $('cStart').addEventListener('click', function () {
+    if (cTimer) { cStop(); return; }
+    if (!cCfg) { cCfg = readCfg(); if (!cCfg) return; }
+    cTimer = setInterval(function () {
+      var s = 0;
+      for (var i = 0; i < cCfg.n; i++) s += cCfg.d.sample(cCfg.p);
+      cVals.push(s / cCfg.n);
+      cDraw();
+    }, RATE_MS);
+    this.textContent = 'Stop'; this.classList.add('stop');
+  });
+  $('cReset').addEventListener('click', cReset);
+  $('cDist').addEventListener('change', function () { buildParams(); cReset(); });
+  $('cN').addEventListener('change', cReset);
+  $('cBins').addEventListener('change', cDraw);
+
+  // ---------- Tabs ----------
+  var tabs = document.querySelectorAll('.tabs button');
+  for (var i = 0; i < tabs.length; i++) tabs[i].addEventListener('click', function () {
+    var cur = this.getAttribute('data-tab');
+    for (var j = 0; j < tabs.length; j++) {
+      var name = tabs[j].getAttribute('data-tab');
+      tabs[j].classList.toggle('active', name === cur);
+      $(name + 'Tab').classList.toggle('hidden', name !== cur);
+    }
+    uStop(); cStop();
+    uDraw(); cDraw();
+  });
+  window.addEventListener('resize', function () { uDraw(); cDraw(); });
+  buildParams();
+  uDraw();
+})();
+</script>
+</body>
+</html>

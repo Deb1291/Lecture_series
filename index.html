@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RE501 Neutron Transport</title>
+  <meta name="description" content="HBNI RE501: neutron transport and the probability behind it. Lecture notes, assignments and interactive demos.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f5f4f0;
+      --surface: #ffffff;
+      --surface-2: #eeece6;
+      --ink: #15171c;
+      --muted: #666b78;
+      --line: #e2e0d9;
+      --accent: #5b4ff5;
+      --accent-ink: #ffffff;
+      --accent-soft: #ecebff;
+      --peach: #ff8a5c;
+      --peach-soft: #ffeee6;
+      --mint: #18b98a;
+      --mint-soft: #e2f7ef;
+      --sky: #2f8ef0;
+      --sky-soft: #e5f1fe;
+      --night: #10121b;
+      --night-2: #1b1e2b;
+      --radius: 22px;
+      --shadow: 0 1px 2px rgba(20,22,30,.04), 0 8px 28px rgba(20,22,30,.06);
+      --display: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+      --body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0d0f15;
+        --surface: #161924;
+        --surface-2: #1e2230;
+        --ink: #eef0f6;
+        --muted: #9aa0b2;
+        --line: #272b3a;
+        --accent: #8b82ff;
+        --accent-ink: #0d0f15;
+        --accent-soft: #232245;
+        --peach: #ff9b72;
+        --peach-soft: #3a2620;
+        --mint: #3bd3a4;
+        --mint-soft: #15302a;
+        --sky: #5aa8ff;
+        --sky-soft: #172a40;
+        --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 28px rgba(0,0,0,.25);
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+    body {
+      position: relative;
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 16px/1.6 var(--body);
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: inherit; }
+    .wrap { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
+
+    /* soft background glow */
+    .glow {
+      position: absolute; inset: 0 0 auto 0; height: 900px; z-index: -1; pointer-events: none; overflow: hidden;
+    }
+    .glow::before, .glow::after {
+      content: ""; position: absolute; border-radius: 50%; filter: blur(90px); opacity: .55;
+    }
+    .glow::before { width: 520px; height: 420px; left: -120px; top: -140px; background: var(--accent-soft); }
+    .glow::after { width: 520px; height: 420px; right: -140px; top: 40px; background: var(--peach-soft); }
+
+    /* ---------- nav ---------- */
+    nav.top {
+      position: sticky; top: 0; z-index: 20;
+      backdrop-filter: saturate(1.4) blur(14px);
+      -webkit-backdrop-filter: saturate(1.4) blur(14px);
+      background: color-mix(in srgb, var(--bg) 78%, transparent);
+      border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+    }
+    nav.top .wrap { display: flex; align-items: center; gap: 28px; height: 64px; }
+    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font: 700 18px var(--display); letter-spacing: -.01em; }
+    .logo {
+      width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
+      background: var(--ink); color: var(--bg); font: 700 19px var(--display);
+    }
+    .navlinks { display: flex; gap: 6px; margin-left: auto; }
+    .navlinks a {
+      text-decoration: none; font-weight: 500; font-size: 15px; color: var(--muted);
+      padding: 7px 14px; border-radius: 999px;
+    }
+    .navlinks a:hover { color: var(--ink); background: var(--surface-2); }
+
+    /* ---------- shared ---------- */
+    .pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      font: 500 13px var(--mono); letter-spacing: .02em;
+      padding: 6px 12px; border-radius: 999px;
+      background: var(--surface); border: 1px solid var(--line); color: var(--muted);
+    }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 0 4px var(--mint-soft); }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      font: 600 15px var(--body); text-decoration: none;
+      padding: 12px 20px; border-radius: 14px;
+      background: var(--ink); color: var(--bg);
+      transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,.15); }
+    .btn.secondary { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
+    .btn svg { width: 16px; height: 16px; }
+    a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 8px; }
+
+    section { padding: 72px 0 0; }
+    .sec-head { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 26px; }
+    .sec-head h2 { font: 700 clamp(28px, 3.4vw, 38px)/1.1 var(--display); letter-spacing: -.025em; margin: 8px 0 0; }
+    .sec-head p { margin: 0; color: var(--muted); max-width: 360px; }
+    .label { font: 500 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+
+    /* ---------- hero bento ---------- */
+    .hero { position: relative; padding-top: 40px; }
+    .bento { display: grid; grid-template-columns: repeat(12, 1fr); gap: 18px; }
+    .tile {
+      background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+      box-shadow: var(--shadow); padding: 28px;
+    }
+    .intro { grid-column: span 7; padding: 40px; display: flex; flex-direction: column; align-items: flex-start; }
+    .intro h1 {
+      font: 800 clamp(38px, 5.4vw, 64px)/1.02 var(--display); letter-spacing: -.035em;
+      margin: 20px 0 18px;
+    }
+    .intro h1 .soft { color: var(--muted); }
+    .intro h1 .hl {
+      background: linear-gradient(90deg, var(--accent), var(--peach));
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .intro p.lead { font-size: 18px; color: var(--muted); margin: 0 0 28px; max-width: 560px; }
+    .intro p.lead strong { color: var(--ink); font-weight: 600; }
+    .cta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: auto; }
+
+    .sim {
+      grid-column: span 5; padding: 0; overflow: hidden; position: relative;
+      background: radial-gradient(120% 80% at 70% 0%, #262a4a 0%, var(--night) 60%);
+      border-color: #22263a; color: #e9ebf5; min-height: 440px;
+      display: flex; flex-direction: column;
+    }
+    .sim-head { display: flex; justify-content: space-between; align-items: center; padding: 20px 22px 0; }
+    .sim-head .pill { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.1); color: #c9cde0; }
+    .sim-head .pill .dot { background: #ff8a5c; box-shadow: 0 0 0 4px rgba(255,138,92,.2); animation: pulse 1.6s infinite; }
+    @keyframes pulse { 50% { opacity: .35; } }
+    .sim canvas { flex: 1; width: 100%; display: block; min-height: 260px; cursor: pointer; }
+    .sim-stats { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid rgba(255,255,255,.08); }
+    .sim-stats div { padding: 14px 18px; }
+    .sim-stats div + div { border-left: 1px solid rgba(255,255,255,.08); }
+    .sim-stats b { display: block; font: 700 24px var(--display); letter-spacing: -.02em; }
+    .sim-stats span { font: 500 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: #9196ad; }
+    .sim-stats .t b { color: #7dd3fc; } .sim-stats .r b { color: #c4b5fd; } .sim-stats .a b { color: #ff9b72; }
+    .sim-caption { position: absolute; left: 22px; right: 22px; top: 62px; font-size: 13.5px; color: #9ca1b8; line-height: 1.5; pointer-events: none; }
+
+    .stat { grid-column: span 3; display: flex; flex-direction: column; justify-content: space-between; gap: 18px; min-height: 150px; }
+    .stat .big { font: 800 46px/1 var(--display); letter-spacing: -.03em; }
+    .stat p { margin: 0; color: var(--muted); font-size: 14.5px; }
+    .stat .icon { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; }
+    .stat .icon svg { width: 20px; height: 20px; }
+    .stat.s1 .icon { background: var(--accent-soft); color: var(--accent); }
+    .stat.s2 .icon { background: var(--mint-soft); color: var(--mint); }
+    .stat.s3 .icon { background: var(--peach-soft); color: var(--peach); }
+    .stat.s4 .icon { background: var(--sky-soft); color: var(--sky); }
+    .stat .row { display: flex; justify-content: space-between; align-items: start; }
+
+    /* ---------- roadmap ---------- */
+    .road { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; position: relative; }
+    .road::before {
+      content: ""; position: absolute; left: 22px; right: 22px; top: 22px; height: 2px;
+      background: linear-gradient(90deg, var(--accent) 0 70%, var(--line) 70%);
+    }
+    .step { position: relative; padding-right: 18px; }
+    .step .n {
+      width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center;
+      font: 700 16px var(--display); position: relative;
+      background: var(--accent); color: var(--accent-ink); border: 4px solid var(--bg);
+    }
+    .step.todo .n { background: var(--surface); color: var(--muted); border-color: var(--bg); box-shadow: inset 0 0 0 2px var(--line); }
+    .step.goal .n { background: linear-gradient(135deg, var(--peach), var(--accent)); color: #fff; }
+    .step h3 { font: 700 17px var(--display); margin: 14px 0 4px; letter-spacing: -.01em; }
+    .step p { margin: 0; font-size: 14px; color: var(--muted); }
+
+    /* ---------- notes ---------- */
+    .notes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+    .note {
+      display: grid; grid-template-columns: 132px 1fr; gap: 24px;
+      background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+      box-shadow: var(--shadow); padding: 20px; transition: transform .2s ease, border-color .2s ease;
+    }
+    .note:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+    /* mini paper preview */
+    .paper {
+      position: relative; aspect-ratio: 210 / 297; border-radius: 10px; overflow: hidden;
+      background: var(--tint); padding: 14px 12px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .paper .sheet {
+      position: absolute; inset: 14px 10px -12px 14px; background: #fff; border-radius: 6px;
+      box-shadow: 0 6px 18px rgba(0,0,0,.12); transform: rotate(-3deg); transition: transform .3s ease;
+      padding: 12px 10px; display: flex; flex-direction: column; gap: 6px;
+    }
+    .note:hover .paper .sheet { transform: rotate(0) translateY(-4px); }
+    .sheet i { display: block; height: 4px; border-radius: 2px; background: #e4e3ef; }
+    .sheet i.t { height: 7px; width: 70%; background: #2a2d3a; margin-bottom: 4px; }
+    .sheet i.s { width: 55%; }
+    .sheet .eq { font: 500 10px/1.1 "Times New Roman", serif; font-style: italic; color: #3b3f52; text-align: center; padding: 6px 0; white-space: nowrap; }
+    .sheet svg { width: 100%; height: 34px; color: var(--tintstrong); }
+    .note .meta { display: flex; flex-direction: column; min-width: 0; }
+    .note .top { display: flex; align-items: center; gap: 10px; font: 500 12px var(--mono); color: var(--muted); letter-spacing: .04em; }
+    .note .num { color: var(--tintstrong); background: var(--tint); padding: 3px 8px; border-radius: 6px; }
+    .note h3 { font: 700 21px/1.2 var(--display); letter-spacing: -.02em; margin: 10px 0 8px; }
+    .note p { margin: 0 0 14px; color: var(--muted); font-size: 14.5px; }
+    .tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 18px; padding: 0; list-style: none; }
+    .tags li { font-size: 12.5px; padding: 3px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
+    .note .actions { margin-top: auto; display: flex; gap: 8px; }
+    .note .btn { padding: 9px 14px; font-size: 14px; border-radius: 11px; }
+    .iconbtn { padding: 9px 11px !important; }
+    .c1 { --tint: var(--accent-soft); --tintstrong: var(--accent); }
+    .c2 { --tint: var(--mint-soft); --tintstrong: var(--mint); }
+    .c3 { --tint: var(--peach-soft); --tintstrong: var(--peach); }
+    .c4 { --tint: var(--sky-soft); --tintstrong: var(--sky); }
+
+    /* ---------- demos ---------- */
+    .demos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .demo {
+      display: flex; flex-direction: column; text-decoration: none;
+      background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+      box-shadow: var(--shadow); overflow: hidden; transition: transform .2s ease, border-color .2s ease;
+    }
+    .demo:hover { transform: translateY(-4px); border-color: color-mix(in srgb, var(--tintstrong) 50%, var(--line)); }
+    .demo .viz { background: var(--tint); color: var(--tintstrong); padding: 26px 26px 18px; height: 170px; display: flex; align-items: end; }
+    .demo .viz svg { width: 100%; height: 100%; overflow: visible; }
+    .demo .body { padding: 20px 22px 22px; display: flex; flex-direction: column; flex: 1; }
+    .demo h3 { font: 700 19px var(--display); letter-spacing: -.015em; margin: 0 0 6px; }
+    .demo p { margin: 0 0 16px; color: var(--muted); font-size: 14.5px; flex: 1; }
+    .demo .go { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 14.5px; }
+    .demo .arrow {
+      width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+      background: var(--surface-2); transition: background .2s, color .2s, transform .2s;
+    }
+    .demo:hover .arrow { background: var(--tintstrong); color: #fff; transform: rotate(-45deg); }
+    .demo .bars rect { transform-box: fill-box; transform-origin: bottom; transition: transform .5s cubic-bezier(.2,.8,.2,1); }
+    .demo:hover .bars rect:nth-child(odd) { transform: scaleY(.82); }
+    .demo:hover .bars rect:nth-child(even) { transform: scaleY(1.08); }
+
+    /* ---------- assignment ---------- */
+    .assign {
+      display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: center;
+      background: var(--night); color: #eef0f6; border-radius: var(--radius); padding: 34px 38px;
+      background: radial-gradient(90% 140% at 100% 0%, #3a2d6e 0%, var(--night) 55%);
+      border: 1px solid #22263a;
+    }
+    .assign .label { color: #ffb08e; }
+    .assign h3 { font: 700 28px/1.15 var(--display); letter-spacing: -.02em; margin: 8px 0 8px; }
+    .assign p { margin: 0; color: #a7acc2; max-width: 560px; }
+    .assign .chips { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+    .assign .chips span { font: 500 12.5px var(--mono); padding: 5px 10px; border-radius: 8px; background: rgba(255,255,255,.07); color: #d3d6e6; }
+    .assign .btn { background: #fff; color: #10121b; }
+    .assign .btn.secondary { background: transparent; color: #fff; border-color: rgba(255,255,255,.2); }
+    .assign .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    /* ---------- footer ---------- */
+    footer { margin-top: 90px; border-top: 1px solid var(--line); padding: 30px 0 40px; color: var(--muted); font-size: 14px; }
+    footer .wrap { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; align-items: start; }
+    .monty summary { cursor: pointer; list-style: none; }
+    .monty summary::-webkit-details-marker { display: none; }
+    .monty[open] summary { color: var(--ink); }
+    .doors { display: flex; gap: 10px; margin: 12px 0 8px; }
+    .door {
+      width: 52px; height: 70px; border-radius: 10px 10px 4px 4px; border: 1px solid var(--line);
+      background: var(--surface); color: var(--ink); font: 700 18px var(--display); cursor: pointer;
+    }
+    .door.picked { border-color: var(--accent); color: var(--accent); }
+    .door.open { cursor: default; background: var(--surface-2); font-size: 24px; }
+    .monty-msg { max-width: 330px; }
+    .monty-msg button { font: inherit; color: var(--accent); background: none; border: 0; padding: 0 2px; text-decoration: underline; cursor: pointer; }
+
+    .toast {
+      position: fixed; left: 50%; bottom: 26px; z-index: 50; transform: translate(-50%, 16px); opacity: 0;
+      background: var(--ink); color: var(--bg); font-weight: 500; font-size: 14.5px;
+      padding: 10px 18px; border-radius: 12px; width: max-content; max-width: 90vw; text-align: center;
+      transition: opacity .25s, transform .25s; pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+    .falling { position: fixed; top: -60px; z-index: 40; pointer-events: none; animation: fall linear forwards; }
+    @keyframes fall { to { transform: translateY(115vh) rotate(540deg); } }
+
+    /* reveal on scroll */
+    .reveal { opacity: 0; transform: translateY(14px); transition: opacity .6s ease, transform .6s ease; }
+    .reveal.in { opacity: 1; transform: none; }
+
+    /* ---------- responsive ---------- */
+    @media (max-width: 980px) {
+      .intro, .sim { grid-column: span 12; }
+      .stat { grid-column: span 6; }
+      .notes { grid-template-columns: 1fr; }
+      .demos { grid-template-columns: 1fr 1fr; }
+      .road { grid-template-columns: 1fr; gap: 18px; }
+      .road::before { left: 22px; right: auto; top: 22px; bottom: 22px; width: 2px; height: auto; background: linear-gradient(180deg, var(--accent) 0 70%, var(--line) 70%); }
+      .step { display: grid; grid-template-columns: 46px 1fr; gap: 0 16px; }
+      .step h3 { margin: 2px 0 2px; }
+      .step p { grid-column: 2; }
+    }
+    @media (max-width: 640px) {
+      .wrap { padding: 0 16px; }
+      .navlinks a:not(:first-child) { display: none; }
+      .intro { padding: 26px 22px; }
+      .stat { grid-column: span 6; padding: 20px; min-height: 0; }
+      .stat .big { font-size: 36px; }
+      .demos { grid-template-columns: 1fr; }
+      .note { grid-template-columns: 1fr; }
+      .note .paper { display: none; }
+      .sec-head { flex-direction: column; align-items: start; gap: 8px; }
+      .assign { grid-template-columns: 1fr; padding: 26px 22px; }
+      section { padding-top: 56px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+      .reveal { opacity: 1; transform: none; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="top">
+  <div class="wrap">
+    <a class="brand" href="#top"><span class="logo">σ</span> RE501</a>
+    <div class="navlinks">
+      <a href="#notes">Notes</a>
+      <a href="#demos">Demos</a>
+      <a href="#homework">Homework</a>
+    </div>
+  </div>
+</nav>
+
+<div class="glow" aria-hidden="true"></div>
+<header class="hero wrap" id="top">
+  <div class="bento">
+
+    <div class="tile intro">
+      <span class="pill"><span class="dot"></span>HBNI · RE501 · Neutron transport</span>
+      <h1>Follow one neutron. <span class="soft">Then</span> <span class="hl">a billion.</span></h1>
+      <p class="lead">
+        A neutron is born in a fission, flies a <strong>random</strong> distance, hits a nucleus, and then scatters,
+        gets absorbed, or splits it to make more neutrons. This course first builds the probability you need to describe
+        that, then uses it to derive <strong>transport theory</strong>.
+      </p>
+      <div class="cta-row">
+        <a class="btn" href="#notes">Start with Class 1
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+        </a>
+        <a class="btn secondary" href="#demos">Try the demos</a>
+      </div>
+    </div>
+
+    <div class="tile sim" aria-label="Animated Monte Carlo simulation of neutrons crossing a slab">
+      <div class="sim-head">
+        <span class="pill"><span class="dot"></span>LIVE · MONTE CARLO</span>
+      </div>
+      <p class="sim-caption">Neutrons enter a slab from the left. Each flight length is exponential, each collision a coin toss: scatter or absorb.</p>
+      <canvas id="sim"></canvas>
+      <div class="sim-stats">
+        <div class="t"><b id="nT">0</b><span>Transmitted</span></div>
+        <div class="r"><b id="nR">0</b><span>Reflected</span></div>
+        <div class="a"><b id="nA">0</b><span>Absorbed</span></div>
+      </div>
+    </div>
+
+    <div class="tile stat s1">
+      <div class="row"><span class="big">4</span><span class="icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2.5h7l3.5 3.5v11.5H5z"/><path d="M12 2.5V6h3.5M8 10h5M8 13h5"/></svg></span></div>
+      <p>Lecture notes so far, one PDF per class</p>
+    </div>
+    <div class="tile stat s2">
+      <div class="row"><span class="big">3</span><span class="icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16.5h14M5.5 13V9M10 13V4.5M14.5 13v-6"/></svg></span></div>
+      <p>Interactive demos that run in your browser</p>
+    </div>
+    <div class="tile stat s3">
+      <div class="row"><span class="big">53</span><span class="icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5h5.5a2 2 0 0 1 2 2v10a1.5 1.5 0 0 0-1.5-1.5H3zM17 4.5h-5.5a2 2 0 0 0-1 .3"/><path d="M17 4.5v11h-6"/></svg></span></div>
+      <p>Pages of notes to read, with worked examples</p>
+    </div>
+    <div class="tile stat s4">
+      <div class="row"><span class="big">50</span><span class="icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.5l3.5 3.5L16 5.5"/></svg></span></div>
+      <p>Marks on offer in Assignment 1</p>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ROADMAP -->
+  <section class="reveal">
+    <div class="sec-head">
+      <div><span class="label">The path</span><h2>From coin tosses to reactors</h2></div>
+      <p>Probability is the foundation. Transport theory is where we are headed.</p>
+    </div>
+    <div class="road">
+      <div class="step"><span class="n">1</span><h3>Sets</h3><p>The language of outcomes and events.</p></div>
+      <div class="step"><span class="n">2</span><h3>Probability</h3><p>Probability spaces, conditioning, random variables.</p></div>
+      <div class="step"><span class="n">3</span><h3>Distributions</h3><p>Binomial, Poisson, Gaussian, decay.</p></div>
+      <div class="step"><span class="n">4</span><h3>Limit theorems</h3><p>Why averages work, and their error bars.</p></div>
+      <div class="step goal"><span class="n">→</span><h3>Neutron transport</h3><p>Random walks of neutrons through matter.</p></div>
+    </div>
+  </section>
+
+  <!-- NOTES -->
+  <section id="notes" class="reveal">
+    <div class="sec-head">
+      <div><span class="label">Read</span><h2>Lecture notes</h2></div>
+      <p>Read online with animations and examples, or download the PDF.</p>
+    </div>
+    <div class="notes">
+
+      <article class="note c1">
+        <div class="paper" aria-hidden="true"><div class="sheet">
+          <i class="t"></i><i></i><i class="s"></i>
+          <svg viewBox="0 0 100 34" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="40" cy="17" r="14"/><circle cx="60" cy="17" r="14"/></svg>
+          <i></i><i class="s"></i><i></i>
+        </div></div>
+        <div class="meta">
+          <div class="top"><span class="num">CLASS 01</span>10 pages</div>
+          <h3>Sets and functions</h3>
+          <p>Empirical probability, random experiments, and the language of sets.</p>
+          <ul class="tags"><li>Sets</li><li>Union &amp; intersection</li><li>Preimage</li></ul>
+          <div class="actions">
+            <a class="btn" href="notes/class1_sets_and_functions.html">Read online</a>
+            <a class="btn secondary iconbtn" href="notes/class1_sets_and_functions.pdf" download aria-label="Download Class 1 PDF" title="Download">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8m-3.5-3.5L8 10l3.5-3.5M3 13.5h10"/></svg>
+            </a>
+          </div>
+        </div>
+      </article>
+
+      <article class="note c2">
+        <div class="paper" aria-hidden="true"><div class="sheet">
+          <i class="t"></i><i></i><i class="s"></i>
+          <div class="eq">P(A|B) = P(A∩B) / P(B)</div>
+          <i></i><i class="s"></i><i></i>
+        </div></div>
+        <div class="meta">
+          <div class="top"><span class="num">CLASS 02</span>12 pages</div>
+          <h3>Probability spaces and random variables</h3>
+          <p>Sample spaces, σ-algebras, conditional probability and independence.</p>
+          <ul class="tags"><li>σ-algebra</li><li>Conditioning</li><li>Random variables</li></ul>
+          <div class="actions">
+            <a class="btn" href="notes/class2_probability_spaces.html">Read online</a>
+            <a class="btn secondary iconbtn" href="notes/class2_probability_spaces.pdf" download aria-label="Download Class 2 PDF" title="Download">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8m-3.5-3.5L8 10l3.5-3.5M3 13.5h10"/></svg>
+            </a>
+          </div>
+        </div>
+      </article>
+
+      <article class="note c3">
+        <div class="paper" aria-hidden="true"><div class="sheet">
+          <i class="t"></i><i></i><i class="s"></i>
+          <svg viewBox="0 0 100 34" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 32 C 30 31, 38 3, 50 3 S 70 31, 96 32"/></svg>
+          <i></i><i class="s"></i><i></i>
+        </div></div>
+        <div class="meta">
+          <div class="top"><span class="num">CLASS 03</span>16 pages</div>
+          <h3>Probability distributions</h3>
+          <p>Binomial, Poisson and radioactive decay, then PDFs, CDFs and the Gaussian.</p>
+          <ul class="tags"><li>Binomial</li><li>Poisson</li><li>Gaussian</li></ul>
+          <div class="actions">
+            <a class="btn" href="notes/class3_distributions.html">Read online</a>
+            <a class="btn secondary iconbtn" href="notes/class3_distributions.pdf" download aria-label="Download Class 3 PDF" title="Download">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8m-3.5-3.5L8 10l3.5-3.5M3 13.5h10"/></svg>
+            </a>
+          </div>
+        </div>
+      </article>
+
+      <article class="note c4">
+        <div class="paper" aria-hidden="true"><div class="sheet">
+          <i class="t"></i><i></i><i class="s"></i>
+          <div class="eq">σ<sub>x̄</sub> = σ / √n</div>
+          <i></i><i class="s"></i><i></i>
+        </div></div>
+        <div class="meta">
+          <div class="top"><span class="num">CLASS 04</span>15 pages</div>
+          <h3>Samples, limit theorems and covariance</h3>
+          <p>Law of large numbers, central limit theorem, sigma levels, propagation of uncertainty.</p>
+          <ul class="tags"><li>LLN</li><li>CLT</li><li>Covariance</li></ul>
+          <div class="actions">
+            <a class="btn" href="notes/class4_samples_limits_covariance.html">Read online</a>
+            <a class="btn secondary iconbtn" href="notes/class4_samples_limits_covariance.pdf" download aria-label="Download Class 4 PDF" title="Download">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8m-3.5-3.5L8 10l3.5-3.5M3 13.5h10"/></svg>
+            </a>
+          </div>
+        </div>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- DEMOS -->
+  <section id="demos" class="reveal">
+    <div class="sec-head">
+      <div><span class="label">Play</span><h2>Interactive demos</h2></div>
+      <p>Move the sliders and watch the distributions change.</p>
+    </div>
+    <div class="demos">
+      <a class="demo c1" href="demos/binomial_explorer.html">
+        <div class="viz" aria-hidden="true">
+          <svg viewBox="0 0 200 110" class="bars" fill="currentColor">
+            <rect x="8" y="100" width="16" height="10" rx="3"/><rect x="28" y="84" width="16" height="26" rx="3"/>
+            <rect x="48" y="56" width="16" height="54" rx="3"/><rect x="68" y="26" width="16" height="84" rx="3"/>
+            <rect x="88" y="8" width="16" height="102" rx="3"/><rect x="108" y="18" width="16" height="92" rx="3"/>
+            <rect x="128" y="48" width="16" height="62" rx="3"/><rect x="148" y="78" width="16" height="32" rx="3"/>
+            <rect x="168" y="96" width="16" height="14" rx="3"/>
+          </svg>
+        </div>
+        <div class="body">
+          <h3>Binomial explorer</h3>
+          <p>Change N and p and watch B(N, p) shift and spread.</p>
+          <div class="go">Open demo <span class="arrow"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg></span></div>
+        </div>
+      </a>
+      <a class="demo c3" href="demos/distribution_explorer.html">
+        <div class="viz" aria-hidden="true">
+          <svg viewBox="0 0 200 110" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round">
+            <path d="M4 108 C 60 106, 78 6, 100 4 S 140 106, 196 108"/>
+            <path d="M4 18 C 40 60, 90 98, 196 106" opacity=".45"/>
+          </svg>
+        </div>
+        <div class="body">
+          <h3>Distribution explorer</h3>
+          <p>Binomial, Poisson, Gaussian and exponential, side by side.</p>
+          <div class="go">Open demo <span class="arrow"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg></span></div>
+        </div>
+      </a>
+      <a class="demo c2" href="demos/uniform_clt_explorer.html">
+        <div class="viz" aria-hidden="true">
+          <svg viewBox="0 0 200 110" class="bars" fill="currentColor">
+            <g opacity=".4"><rect x="4" y="54" width="16" height="56" rx="3"/><rect x="22" y="48" width="16" height="62" rx="3"/><rect x="40" y="58" width="16" height="52" rx="3"/><rect x="58" y="52" width="16" height="58" rx="3"/></g>
+            <rect x="104" y="96" width="11" height="14" rx="3"/><rect x="117" y="70" width="11" height="40" rx="3"/>
+            <rect x="130" y="30" width="11" height="80" rx="3"/><rect x="143" y="8" width="11" height="102" rx="3"/>
+            <rect x="156" y="26" width="11" height="84" rx="3"/><rect x="169" y="66" width="11" height="44" rx="3"/>
+            <rect x="182" y="94" width="11" height="16" rx="3"/>
+          </svg>
+        </div>
+        <div class="body">
+          <h3>Uniform &amp; CLT explorer</h3>
+          <p>Average many uniform draws and watch a bell curve appear.</p>
+          <div class="go">Open demo <span class="arrow"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg></span></div>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <!-- HOMEWORK -->
+  <section id="homework" class="reveal">
+    <div class="sec-head">
+      <div><span class="label">Practice</span><h2>Homework</h2></div>
+      <p>Submission instructions are inside the PDF.</p>
+    </div>
+    <div class="assign">
+      <div>
+        <span class="label">Assignment 01</span>
+        <h3>Probability Theory I</h3>
+        <p>Pen-and-paper problems plus a few short programs. Write them in any language you like.</p>
+        <div class="chips"><span>50 marks</span><span>13 pages</span><span>due before the exam</span></div>
+      </div>
+      <div class="actions">
+        <a class="btn" href="assignments/assignment_1.pdf" target="_blank" rel="noopener">Read assignment</a>
+        <a class="btn secondary" href="assignments/assignment_1.pdf" download>Download</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>RE501 · Homi Bhabha National Institute</div>
+    <details class="monty">
+      <summary>Feeling lucky? 🚪</summary>
+      <div class="doors">
+        <button type="button" class="door">1</button>
+        <button type="button" class="door">2</button>
+        <button type="button" class="door">3</button>
+      </div>
+      <div class="monty-msg" id="monty-msg">A car hides behind one door. Pick one.</div>
+    </details>
+  </div>
+</footer>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (s) { return document.querySelector(s); };
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var toastTimer;
+  function toast(msg, ms) {
+    var t = $('#toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.classList.remove('show'); }, ms || 3500);
+  }
+
+  /* ---------- reveal on scroll ---------- */
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+    }, { threshold: .12 });
+    document.querySelectorAll('.reveal').forEach(function (el) { io.observe(el); });
+  } else {
+    document.querySelectorAll('.reveal').forEach(function (el) { el.classList.add('in'); });
+  }
+
+  /* ---------- Monte Carlo slab simulation ---------- */
+  var cv = $('#sim'), ctx = cv.getContext('2d');
+  var W = 0, H = 0, slab = { x0: 0, x1: 0 }, mfp = 0, nuclei = [];
+  var P_ABSORB = 0.18;                 // Σa / Σt
+  var counts = { T: 0, R: 0, A: 0 }, neutrons = [], speed = 2.6, spawnClock = 0;
+  function resize() {
+    var r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    W = r.width; H = r.height;
+    cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    slab.x0 = W * 0.26; slab.x1 = W * 0.80; mfp = (slab.x1 - slab.x0) / 2.4;
+    nuclei = [];
+    for (var i = 0; i < 70; i++) nuclei.push([slab.x0 + Math.random() * (slab.x1 - slab.x0), 70 + Math.random() * (H - 80)]);
+  }
+  function flight() { return -Math.log(1 - Math.random()) * mfp; }
+  function spawn() {
+    var y = 90 + Math.random() * (H - 110);
+    neutrons.push({ x: 0, y: y, dx: 1, dy: 0, left: (slab.x0) + flight(), pts: [[0, y]], fate: null, fade: 1, inSlab: false });
+  }
+  function step(n) {
+    if (n.fate) { n.fade -= 0.012; return; }
+    var move = Math.min(speed, n.left);
+    n.x += n.dx * move; n.y += n.dy * move; n.left -= move;
+    if (!n.inSlab && n.x >= slab.x0) n.inSlab = true;
+    // mirror top and bottom edges, so the slab behaves as if infinitely tall
+    if ((n.y < 60 && n.dy < 0) || (n.y > H - 8 && n.dy > 0)) { n.pts.push([n.x, n.y, 1]); n.dy = -n.dy; }
+    // a neutron that leaves the slab streams freely until it leaves the box
+    if (n.inSlab && (n.x > slab.x1 || n.x < slab.x0)) n.free = true;
+    if (n.free) {
+      n.left = Infinity;
+      if (n.x > W + 4 || n.x < -4) {
+        n.fate = n.x > slab.x1 ? 'T' : 'R'; counts[n.fate]++; n.pts.push([n.x, n.y]); updateCounts();
+      }
+      return;
+    }
+    if (n.left <= 0) {             // collision
+      n.pts.push([n.x, n.y]);
+      if (Math.random() < P_ABSORB) { n.fate = 'A'; counts.A++; updateCounts(); return; }
+      var th = Math.random() * 2 * Math.PI;
+      n.dx = Math.cos(th); n.dy = Math.sin(th); n.left = flight();
+    }
+  }
+  function updateCounts() { $('#nT').textContent = counts.T; $('#nR').textContent = counts.R; $('#nA').textContent = counts.A; }
+  var colors = { T: '125,211,252', R: '196,181,253', A: '255,155,114', live: '255,255,255' };
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    // slab
+    var g = ctx.createLinearGradient(slab.x0, 0, slab.x1, 0);
+    g.addColorStop(0, 'rgba(139,130,255,.16)'); g.addColorStop(1, 'rgba(139,130,255,.06)');
+    ctx.fillStyle = g; ctx.fillRect(slab.x0, 0, slab.x1 - slab.x0, H);
+    ctx.strokeStyle = 'rgba(160,155,255,.35)'; ctx.setLineDash([4, 6]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(slab.x0, 0); ctx.lineTo(slab.x0, H); ctx.moveTo(slab.x1, 0); ctx.lineTo(slab.x1, H); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(255,255,255,.12)';
+    nuclei.forEach(function (p) { ctx.beginPath(); ctx.arc(p[0], p[1], 1.6, 0, 6.3); ctx.fill(); });
+    // paths
+    neutrons.forEach(function (n) {
+      var c = n.fate ? colors[n.fate] : colors.live, a = n.fate ? 0.75 * n.fade : 0.9;
+      ctx.strokeStyle = 'rgba(' + c + ',' + a + ')'; ctx.lineWidth = 1.6; ctx.lineJoin = 'round';
+      ctx.beginPath(); ctx.moveTo(n.pts[0][0], n.pts[0][1]);
+      for (var i = 1; i < n.pts.length; i++) ctx.lineTo(n.pts[i][0], n.pts[i][1]);
+      if (!n.fate) ctx.lineTo(n.x, n.y);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(' + c + ',' + a + ')';
+      for (var j = 1; j < n.pts.length - (n.fate === 'A' ? 1 : 0); j++) { if (n.pts[j][2]) continue; ctx.beginPath(); ctx.arc(n.pts[j][0], n.pts[j][1], 2, 0, 6.3); ctx.fill(); }
+      if (n.fate === 'A') { var p = n.pts[n.pts.length - 1]; ctx.beginPath(); ctx.arc(p[0], p[1], 4.5, 0, 6.3); ctx.fill(); }
+      if (!n.fate) {
+        ctx.fillStyle = '#fff'; ctx.shadowColor = 'rgba(255,255,255,.9)'; ctx.shadowBlur = 10;
+        ctx.beginPath(); ctx.arc(n.x, n.y, 3.2, 0, 6.3); ctx.fill(); ctx.shadowBlur = 0;
+      }
+    });
+  }
+  function tick() {
+    spawnClock--;
+    if (spawnClock <= 0 && neutrons.filter(function (n) { return !n.fate; }).length < 6) { spawn(); spawnClock = 38; }
+    for (var k = 0; k < 2; k++) neutrons.forEach(step);
+    neutrons = neutrons.filter(function (n) { return n.fade > 0; });
+    draw();
+    requestAnimationFrame(tick);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+  if (reduceMotion) {
+    // run a batch instantly and show the final picture
+    for (var i = 0; i < 12; i++) spawn();
+    for (var s = 0; s < 3000; s++) neutrons.forEach(step);
+    neutrons.forEach(function (n) { n.fade = 1; });
+    draw();
+  } else {
+    tick();
+  }
+  cv.addEventListener('click', function () {
+    for (var i = 0; i < 6; i++) spawn();
+    var tot = counts.T + counts.R + counts.A;
+    toast(tot ? 'Burst! So far ' + Math.round(100 * counts.T / tot) + '% of neutrons made it through the slab.' : 'Burst of neutrons!');
+  });
+
+  /* ---------- keyboard secrets ---------- */
+  var konami = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+  var kIdx = 0, typed = '';
+  document.addEventListener('keydown', function (e) {
+    var key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    kIdx = key === konami[kIdx] ? kIdx + 1 : (key === konami[0] ? 1 : 0);
+    if (kIdx === konami.length) { kIdx = 0; diceRain(); }
+    if (e.key.length === 1) {
+      typed = (typed + key).slice(-12);
+      if (/fermi$/.test(typed)) toast('Fermi: “If the result confirms the hypothesis, you\'ve made a measurement. If it\'s contrary, you\'ve made a discovery.”', 6500);
+      if (/gauss$/.test(typed)) toast('68% within 1σ, 95% within 2σ, 99.7% within 3σ. Gauss approves.');
+    }
+  });
+  function diceRain() {
+    var faces = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+    for (var i = 0; i < 36; i++) {
+      var d = document.createElement('div');
+      d.className = 'falling';
+      d.textContent = faces[Math.floor(Math.random() * 6)];
+      d.style.left = Math.random() * 100 + 'vw';
+      d.style.fontSize = (26 + Math.random() * 28) + 'px';
+      d.style.color = ['var(--accent)', 'var(--peach)', 'var(--mint)', 'var(--sky)'][i % 4];
+      d.style.animationDuration = (2 + Math.random() * 2.5) + 's';
+      d.style.animationDelay = Math.random() * 1.2 + 's';
+      document.body.appendChild(d);
+      d.addEventListener('animationend', function () { this.remove(); });
+    }
+    toast('36 dice! Expected number of sixes: 6.');
+  }
+
+  /* ---------- Monty Hall ---------- */
+  var car, pick, opened, stage = 0, stats = { stay: [0, 0], swap: [0, 0] };
+  var doors = Array.prototype.slice.call(document.querySelectorAll('.door'));
+  var msg = $('#monty-msg');
+  function resetMonty() {
+    car = Math.floor(Math.random() * 3); stage = 0;
+    doors.forEach(function (d, i) { d.textContent = i + 1; d.className = 'door'; d.disabled = false; });
+  }
+  function frac(s) { return s[0] + '/' + s[1]; }
+  function finish(final, swapped) {
+    stage = 2;
+    doors.forEach(function (d, i) { d.textContent = i === car ? '🚗' : '🐐'; d.classList.add('open'); d.disabled = true; });
+    var win = final === car, s = swapped ? stats.swap : stats.stay;
+    s[1]++; if (win) s[0]++;
+    msg.innerHTML = (win ? 'A car! ' : 'A goat. ') + 'Wins: switching ' + frac(stats.swap) + ', staying ' + frac(stats.stay) +
+      '. <button type="button" id="again">Play again</button>';
+    $('#again').addEventListener('click', function () { resetMonty(); msg.textContent = 'Pick a door.'; });
+  }
+  doors.forEach(function (d, i) {
+    d.addEventListener('click', function () {
+      if (stage !== 0) return;
+      pick = i; stage = 1; d.classList.add('picked');
+      var options = [0, 1, 2].filter(function (j) { return j !== pick && j !== car; });
+      opened = options[Math.floor(Math.random() * options.length)];
+      doors[opened].textContent = '🐐'; doors[opened].classList.add('open'); doors[opened].disabled = true;
+      msg.innerHTML = 'Door ' + (opened + 1) + ' hides a goat. <button type="button" id="stay">Stay</button> or <button type="button" id="swap">switch</button>?';
+      $('#stay').addEventListener('click', function () { finish(pick, false); });
+      $('#swap').addEventListener('click', function () { finish(3 - pick - opened, true); });
+    });
+  });
+  resetMonty();
+
+  try { console.log('%cRE501 · Try the Konami code, or type "fermi" or "gauss" on the page.', 'color:#5b4ff5;font-weight:600'); } catch (e) {}
+})();
+</script>
+</body>
+</html>
